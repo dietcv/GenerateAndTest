@@ -1,0 +1,190 @@
+class:: FilterBank
+summary:: FilterBank
+categories:: UGens>Oscillator
+
+DESCRIPTION::
+FilterBank
+
+CLASSMETHODS::
+
+METHOD:: ar
+
+ARGUMENT:: input
+input
+
+ARGUMENT:: freq
+freq
+
+ARGUMENT:: spread
+spread
+
+ARGUMENT:: warp
+warp
+
+ARGUMENT:: q
+q
+
+returns:: Audio rate UGen.
+
+EXAMPLES::
+
+subsection::1.1) test
+
+code::
+(
+{
+	var sig = WhiteNoise.ar(0.5);
+	var spread = MouseX.kr(0, 2);
+	var warp = MouseY.kr(-1, 1);
+	sig = FilterBank.ar(sig, 220, spread, warp, 0.8);
+	sig!2 * 0.1;
+}.play;
+)
+::
+
+subsection::1.2) test 2
+
+code::
+(
+SynthDef(\filterbank, {
+
+	var inSig, sig;
+	var cuttoff, spread, warp;
+
+	inSig = In.ar(\in.kr(0), 2);
+
+	spread = SinOsc.kr(0.1, 1.5pi).linlin(-1, 1, 0, 2);
+	warp = SinOsc.kr(0.1).linlin(-1, 1, -1, 1);
+	cuttoff = 220;
+
+	sig = BHiShelf.ar(inSig, 1320, 0.5, 10);
+	sig = FilterBank.ar(sig, cuttoff, spread, warp, 0.1);
+
+	ReplaceOut.ar(\out.kr(0), sig);
+}).add;
+
+SynthDef(\test, {
+    var sig;
+    sig = Saw.ar(\freq.kr(440));
+    sig = Pan2.ar(sig, \pan.kr(0));
+    sig = sig * \amp.kr(-15.dbamp);
+    sig = sig * Env.asr(0.001, 1, 0.001).ar(Done.freeSelf, \gate.kr(1));
+    sig = Limiter.ar(sig);
+    Out.ar(\out.kr(0), sig);
+}).add;
+)
+
+(
+Routine({
+
+	var freqs = [57, 60, 64, 65, 70].midicps;
+
+	s.bind {
+		freqs.collect{ |freq|
+
+			Synth(\test, [
+				\freq, freq,
+				\amp, -35.dbamp,
+			], addAction: \addToHead);
+
+		};
+	};
+
+	s.bind {
+
+		Synth(\filterbank, [
+		], addAction: \addToTail);
+
+	};
+
+}).play;
+)
+::
+
+subsection::1.3) test 3
+
+code::
+(
+var vps = { |freq, skew, harm|
+
+	var phase = Phasor.ar(DC.ar(0), freq * SampleDur.ir);
+
+	var harm_even = harm.round(2);
+	var harm_odd = ((harm + 1).round(2) - 1);
+
+	var pmod = UnitTriangle.ar(phase, skew);
+
+	var sig_even = cos(phase + (pmod * (harm_even - skew)) * 2pi).neg;
+	var sig_odd = cos(phase + (pmod * (harm_odd - skew)) * 2pi).neg;
+
+	LinXFade2.ar(sig_even, sig_odd, harm.fold(0, 1) * 2 - 1);
+};
+
+SynthDef(\test, {
+    var sig;
+
+	var grainFreqMod = LFDNoise3.ar(0.1!2);
+	var skewMod = LFDNoise3.ar(0.1!2);
+
+	var harmonics = [
+		\harmA.kr(2) * (2 ** (grainFreqMod[1] * 3)),
+		\harmB.kr(4) * (2 ** (grainFreqMod[0] * 1))
+	];
+
+	sig = vps.(\freq.kr(440), skewMod.linlin(-1, 1, 0.15, 0.35), harmonics);
+
+	[1.5, 2.0].do{ |ratio, i|
+		sig[i] = PitchShift.ar(sig[i], 0.2, ratio, 0.003, 0.001);
+	};
+
+	sig = Splay.ar(sig);
+
+    sig = sig * \amp.kr(-15.dbamp);
+    sig = sig * Env.asr(0.001, 1, 0.001).ar(Done.freeSelf, \gate.kr(1));
+    sig = Limiter.ar(sig);
+    Out.ar(\out.kr(0), sig);
+}).add;
+
+SynthDef(\filterbank, {
+
+	var inSig, sig;
+	var cuttoff, spread, warp;
+
+	inSig = In.ar(\in.kr(0), 2);
+
+	spread = LFDNoise3.kr(0.1).linlin(-1, 1, 0, 2);
+	warp = LFDNoise3.kr(0.1).linlin(-1, 1, -1, 1);
+	cuttoff = 220;
+
+	sig = FilterBank.ar(inSig, cuttoff, spread, warp, 0.1);
+
+	ReplaceOut.ar(\out.kr(0), sig);
+}).add;
+)
+
+(
+Routine({
+
+	var freqs = [57, 60, 64, 65, 70].midicps;
+
+	s.bind {
+		freqs.collect{ |freq|
+
+			Synth(\test, [
+				\freq, freq,
+				\amp, -35.dbamp,
+			], addAction: \addToHead);
+
+		};
+	};
+
+	s.bind {
+
+		Synth(\filterbank, [
+		], addAction: \addToTail);
+
+	};
+
+}).play;
+)
+::
