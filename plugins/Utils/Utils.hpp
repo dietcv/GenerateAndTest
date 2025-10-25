@@ -10,14 +10,6 @@ namespace Utils {
 inline constexpr float PI = 3.14159265358979323846f;
 inline constexpr float TWO_PI = 6.28318530717958647692f;
 
-// ===== FAST APPROXIMATIONS =====
-
-inline float tanApprox(float x) {
-    float x2 = x * x;
-    return x * (0.999999492001f + x2 * -0.096524608111f) / 
-                (1.0f + x2 * (-0.429867256894f + x2 * 0.009981877999f));
-}
-
 // ===== BASIC MATH UTILITIES =====
 
 inline float lerp(float a, float b, float t) {
@@ -93,17 +85,10 @@ struct EmilieSVF {
     float m_rpg{0.0f};
     
     void updateCoefficients(float cutoff, float q, float sampleRate) {
-
         m_g = std::tan(cutoff * Utils::PI / sampleRate);
         m_r = 1.0f / q;
         m_h = 1.0f / (1.0f + m_r * m_g + m_g * m_g);
         m_rpg = m_r + m_g;
-        
-        // Flush denormals from coefficients
-        m_g = zapgremlins(m_g);
-        m_r = zapgremlins(m_r);
-        m_h = zapgremlins(m_h);
-        m_rpg = zapgremlins(m_rpg);
     }
     
     inline float processBandpass(float xin) {
